@@ -26,8 +26,14 @@ link to it right in the response.
 
 ## Install
 
-Point Claude Code at this repo as a plugin source (via `--plugin-dir` for local dev,
-or add it through your plugin marketplace flow once published):
+From another Claude Code session:
+
+```
+/plugin marketplace add KhaiStimpson/cc-mermaid
+/plugin install cc-mermaid@cc-mermaid-marketplace
+```
+
+Or for local development, point Claude Code at a local checkout directly:
 
 ```
 claude --plugin-dir /path/to/cc-mermaid

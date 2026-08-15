@@ -1,0 +1,13 @@
+{
+  "name": "cc-mermaid-marketplace",
+  "owner": {
+    "name": "Khai Stimpson"
+  },
+  "plugins": [
+    {
+      "name": "cc-mermaid",
+      "source": "./",
+      "description": "Renders Mermaid diagrams from chat responses to a self-contained HTML file and links (or auto-opens) it in your browser."
+    }
+  ]
+}
