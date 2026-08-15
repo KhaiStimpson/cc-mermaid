@@ -30,111 +30,176 @@ function buildHtml(source) {
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Mermaid Diagram</title>
 <style>
   :root {
     color-scheme: light dark;
-    --bg: #fff;
+    --bg: #fafafa;
     --fg: #1a1a1a;
-    --bar-bg: #f5f5f5;
-    --border: #ddd;
-    --btn-bg: #fff;
-    --btn-bg-hover: #ececec;
+    --dot: rgba(0, 0, 0, 0.09);
+    --bar-bg: rgba(255, 255, 255, 0.75);
+    --border: rgba(0, 0, 0, 0.08);
+    --btn-fg: #333;
+    --btn-hover: rgba(0, 0, 0, 0.06);
+    --btn-active: rgba(0, 0, 0, 0.12);
+    --divider: rgba(0, 0, 0, 0.1);
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.06);
     --err: #c0392b;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #1e1e1e;
+      --bg: #17181a;
       --fg: #eee;
-      --bar-bg: #2a2a2a;
-      --border: #444;
-      --btn-bg: #333;
-      --btn-bg-hover: #3d3d3d;
+      --dot: rgba(255, 255, 255, 0.09);
+      --bar-bg: rgba(38, 39, 42, 0.75);
+      --border: rgba(255, 255, 255, 0.08);
+      --btn-fg: #e6e6e6;
+      --btn-hover: rgba(255, 255, 255, 0.09);
+      --btn-active: rgba(255, 255, 255, 0.16);
+      --divider: rgba(255, 255, 255, 0.12);
+      --shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
     }
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
+    width: 100%;
     height: 100%;
-    background: var(--bg);
-    color: var(--fg);
-    font-family: -apple-system, Segoe UI, sans-serif;
+    height: 100dvh;
     overflow: hidden;
+    overscroll-behavior: none;
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    color: var(--fg);
+  }
+  #stage {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(var(--dot) 1.4px, transparent 1.4px) 0 0 / 22px 22px,
+      var(--bg);
+    cursor: grab;
+    touch-action: none;
+  }
+  #stage.grabbing { cursor: grabbing; }
+  #diagram, #diagram svg {
+    width: 100%;
+    height: 100%;
+    display: block;
   }
   #toolbar {
+    position: fixed;
+    left: 50%;
+    bottom: max(18px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 10px;
+    gap: 2px;
+    padding: 6px;
     background: var(--bar-bg);
-    border-bottom: 1px solid var(--border);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    -webkit-user-select: none;
+    user-select: none;
+    max-width: calc(100vw - 24px);
+  }
+  #toolbar button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: transparent;
+    color: var(--btn-fg);
+    border: none;
+    border-radius: 9px;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  #toolbar button.wide { width: auto; padding: 0 12px; font-size: 12.5px; font-weight: 500; }
+  #toolbar button:hover { background: var(--btn-hover); }
+  #toolbar button:active { background: var(--btn-active); }
+  #toolbar button svg { width: 17px; height: 17px; }
+  #zoomLevel {
+    min-width: 42px;
+    text-align: center;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.7;
     -webkit-user-select: none;
     user-select: none;
   }
-  #toolbar button {
-    background: var(--btn-bg);
-    color: var(--fg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 5px 10px;
-    font-size: 13px;
-    cursor: pointer;
-    line-height: 1.2;
+  .divider {
+    width: 1px;
+    height: 20px;
+    background: var(--divider);
+    margin: 0 4px;
+    flex: 0 0 auto;
   }
-  #toolbar button:hover { background: var(--btn-bg-hover); }
-  #toolbar button:active { transform: translateY(1px); }
-  #zoomLevel {
-    font-size: 12px;
-    min-width: 48px;
-    text-align: center;
-    opacity: 0.75;
-  }
-  #spacer { flex: 1; }
   #hint {
-    font-size: 11px;
-    opacity: 0.55;
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11.5px;
+    opacity: 0.45;
+    white-space: nowrap;
+    pointer-events: none;
   }
-  #stage {
-    position: relative;
-    width: 100%;
-    height: calc(100% - 41px);
-    overflow: hidden;
-    cursor: grab;
-  }
-  #stage.grabbing { cursor: grabbing; }
-  #diagram {
-    width: 100%;
-    height: 100%;
-  }
-  #diagram svg {
-    width: 100%;
-    height: 100%;
+  @media (max-width: 560px) {
+    #hint { display: none; }
+    #toolbar button.wide span.label { display: none; }
+    #toolbar button.wide { width: 34px; padding: 0; }
   }
   #err {
+    position: absolute;
+    inset: 0;
     color: var(--err);
-    font-family: monospace;
+    background: var(--bg);
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-size: 13px;
     white-space: pre-wrap;
-    padding: 1rem;
+    padding: 1.25rem;
+    overflow: auto;
   }
+  #err:empty { display: none; }
 </style>
 </head>
 <body>
-<div id="toolbar">
-  <button id="zoomOut" title="Zoom out (-)">&minus;</button>
-  <span id="zoomLevel">100%</span>
-  <button id="zoomIn" title="Zoom in (+)">+</button>
-  <button id="fit" title="Fit to screen (f)">Fit</button>
-  <button id="reset" title="Reset (0)">Reset</button>
-  <button id="download" title="Download SVG">Download SVG</button>
-  <div id="spacer"></div>
-  <span id="hint">scroll to zoom &middot; drag to pan &middot; dblclick to zoom in</span>
-</div>
 <div id="stage">
   <div id="diagram">
     <pre class="mermaid">
 ${escaped}
     </pre>
   </div>
+</div>
+<span id="hint">scroll to zoom &middot; drag to pan &middot; dblclick to zoom in</span>
+<div id="toolbar">
+  <button id="zoomOut" title="Zoom out (-)" aria-label="Zoom out">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+  <span id="zoomLevel">100%</span>
+  <button id="zoomIn" title="Zoom in (+)" aria-label="Zoom in">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+  <div class="divider"></div>
+  <button id="fit" class="wide" title="Fit to screen (f)" aria-label="Fit to screen">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+    <span class="label">Fit</span>
+  </button>
+  <button id="reset" class="wide" title="Reset zoom (0)" aria-label="Reset zoom">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+    <span class="label">Reset</span>
+  </button>
+  <div class="divider"></div>
+  <button id="download" title="Download SVG" aria-label="Download SVG">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+  </button>
 </div>
 <div id="err"></div>
 <script src="${MERMAID_CDN}"></script>
@@ -143,9 +208,18 @@ ${escaped}
   var isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
 
-  mermaid.run().then(function () {
+  function nextFrame() {
+    return new Promise(function (resolve) {
+      requestAnimationFrame(function () { requestAnimationFrame(resolve); });
+    });
+  }
+
+  mermaid.run()
+    .then(nextFrame)
+    .then(function () {
     var svgEl = document.querySelector('#diagram svg');
     if (!svgEl) return;
+    svgEl.removeAttribute('width');
     svgEl.removeAttribute('height');
     svgEl.style.maxWidth = 'none';
 
@@ -157,18 +231,32 @@ ${escaped}
       mouseWheelZoomEnabled: true,
       preventMouseEventsDefault: true,
       fit: true,
+      contain: false,
       center: true,
-      minZoom: 0.1,
+      minZoom: 0.05,
       maxZoom: 40,
       zoomScaleSensitivity: 0.35,
+      // Small negative offset so "fit" fills the canvas edge-to-edge
+      // (default fit leaves a wide margin) rather than reading tiny in the middle.
       onZoom: updateZoomLabel
     });
+
+    function refit() {
+      panZoom.resize();
+      panZoom.fit();
+      // svg-pan-zoom's fit() leaves the diagram noticeably smaller than the
+      // canvas on most aspect ratios; nudge it up so it reads as "filling" it.
+      panZoom.zoom(panZoom.getZoom() * 1.12);
+      panZoom.center();
+      updateZoomLabel();
+    }
 
     function updateZoomLabel() {
       var z = panZoom.getZoom();
       document.getElementById('zoomLevel').textContent = Math.round(z * 100) + '%';
     }
-    updateZoomLabel();
+    // Layout may still shift a frame after init (fonts, scrollbars); settle once more.
+    refit();
 
     var stage = document.getElementById('stage');
     stage.addEventListener('mousedown', function () { stage.classList.add('grabbing'); });
@@ -180,16 +268,9 @@ ${escaped}
     document.getElementById('zoomOut').addEventListener('click', function () {
       panZoom.zoomOut();
     });
-    document.getElementById('fit').addEventListener('click', function () {
-      panZoom.resize();
-      panZoom.fit();
-      panZoom.center();
-      updateZoomLabel();
-    });
+    document.getElementById('fit').addEventListener('click', refit);
     document.getElementById('reset').addEventListener('click', function () {
-      panZoom.resize();
-      panZoom.fit();
-      panZoom.center();
+      refit();
       panZoom.zoom(1);
       updateZoomLabel();
     });
@@ -213,18 +294,17 @@ ${escaped}
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       if (e.key === '+' || e.key === '=') panZoom.zoomIn();
       else if (e.key === '-' || e.key === '_') panZoom.zoomOut();
-      else if (e.key === '0') {
-        panZoom.resize(); panZoom.fit(); panZoom.center(); panZoom.zoom(1); updateZoomLabel();
-      } else if (e.key === 'f' || e.key === 'F') {
-        panZoom.resize(); panZoom.fit(); panZoom.center(); updateZoomLabel();
-      }
+      else if (e.key === '0') { refit(); panZoom.zoom(1); updateZoomLabel(); }
+      else if (e.key === 'f' || e.key === 'F') refit();
     });
 
-    window.addEventListener('resize', function () {
-      panZoom.resize();
-      panZoom.fit();
-      panZoom.center();
-    });
+    if (window.ResizeObserver) {
+      var resizeObserver = new ResizeObserver(function () { refit(); });
+      resizeObserver.observe(stage);
+    } else {
+      window.addEventListener('resize', refit);
+    }
+    window.addEventListener('orientationchange', refit);
   }).catch(function (e) {
     document.getElementById('err').textContent = 'Failed to render diagram:\\n' + e.message;
   });
