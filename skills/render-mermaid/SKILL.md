@@ -9,6 +9,15 @@ Whenever you include a ` ```mermaid ` code block anywhere in your response, imme
 after writing it, run the bundled render script to produce a viewable HTML file, then
 append a link to it right under the code block in your reply.
 
+**Never write the HTML file yourself** (no `Write` tool, no hand-rolled `<html>`
+output, no using your scratchpad directory for this). Always invoke
+`scripts/render.js` exactly as shown below, even if that means running Bash instead
+of a tool you'd otherwise reach for. The script is what gives you the interactive
+pan/zoom viewer, correct dark-mode handling, and a stable, deduplicated location
+(`~/.claude/cc-mermaid/renders/`, or `$CLAUDE_PLUGIN_DATA` if set) — a hand-written
+file skips all of that, usually lands in a scratch directory the user's browser or
+this chat client can't or won't open, and gets lost between sessions.
+
 ## How to call it
 
 Pass the exact mermaid source (everything between the ` ```mermaid ` and ` ``` ` fences,

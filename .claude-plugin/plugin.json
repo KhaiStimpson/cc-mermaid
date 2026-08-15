@@ -1,7 +1,7 @@
 {
   "name": "cc-mermaid",
   "description": "Renders Mermaid diagrams from chat responses to a self-contained HTML file and links (or auto-opens) it in your browser.",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "author": {
     "name": "Khai Stimpson"
   }

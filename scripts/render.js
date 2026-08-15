@@ -82,10 +82,11 @@ function buildHtml(source) {
     touch-action: none;
   }
   #stage.grabbing { cursor: grabbing; }
-  #diagram, #diagram svg {
+  #diagram, #diagram pre.mermaid, #diagram svg {
     width: 100%;
     height: 100%;
     display: block;
+    margin: 0;
   }
   #toolbar {
     position: fixed;
