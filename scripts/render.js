@@ -223,6 +223,14 @@ ${escaped}
     svgEl.removeAttribute('height');
     svgEl.style.maxWidth = 'none';
 
+    // Capture the diagram's true geometry before svg-pan-zoom touches anything.
+    // svg-pan-zoom's own fit()/center() reasons about the SVG's viewBox vs. its
+    // CSS-rendered box, which disagree once the SVG is stretched to fill the
+    // screen (width/height: 100%) — that mismatch is what made "fit" compute a
+    // tiny, off-center diagram. getBBox() gives the real content bounds instead,
+    // so we do the fit math ourselves and only use the library for interaction.
+    var contentBBox = svgEl.getBBox();
+
     var panZoom = svgPanZoom(svgEl, {
       panEnabled: true,
       zoomEnabled: true,
@@ -230,35 +238,45 @@ ${escaped}
       dblClickZoomEnabled: true,
       mouseWheelZoomEnabled: true,
       preventMouseEventsDefault: true,
-      fit: true,
+      fit: false,
       contain: false,
-      center: true,
+      center: false,
       minZoom: 0.05,
       maxZoom: 40,
       zoomScaleSensitivity: 0.35,
-      // Small negative offset so "fit" fills the canvas edge-to-edge
-      // (default fit leaves a wide margin) rather than reading tiny in the middle.
       onZoom: updateZoomLabel
     });
 
+    function centerAt(scale) {
+      var stageRect = stage.getBoundingClientRect();
+      panZoom.zoom(scale);
+      panZoom.pan({
+        x: (stageRect.width - contentBBox.width * scale) / 2 - contentBBox.x * scale,
+        y: (stageRect.height - contentBBox.height * scale) / 2 - contentBBox.y * scale
+      });
+      updateZoomLabel();
+    }
+
     function refit() {
       panZoom.resize();
-      panZoom.fit();
-      // svg-pan-zoom's fit() leaves the diagram noticeably smaller than the
-      // canvas on most aspect ratios; nudge it up so it reads as "filling" it.
-      panZoom.zoom(panZoom.getZoom() * 1.12);
-      panZoom.center();
-      updateZoomLabel();
+      var stageRect = stage.getBoundingClientRect();
+      var padding = 40;
+      var scale = Math.min(
+        (stageRect.width - padding * 2) / contentBBox.width,
+        (stageRect.height - padding * 2) / contentBBox.height
+      );
+      scale = Math.max(Math.min(scale, 40), 0.05);
+      centerAt(scale);
     }
 
     function updateZoomLabel() {
       var z = panZoom.getZoom();
       document.getElementById('zoomLevel').textContent = Math.round(z * 100) + '%';
     }
-    // Layout may still shift a frame after init (fonts, scrollbars); settle once more.
-    refit();
 
     var stage = document.getElementById('stage');
+    // Layout may still shift a frame after init (fonts, scrollbars); settle once more.
+    refit();
     stage.addEventListener('mousedown', function () { stage.classList.add('grabbing'); });
     window.addEventListener('mouseup', function () { stage.classList.remove('grabbing'); });
 
@@ -270,9 +288,8 @@ ${escaped}
     });
     document.getElementById('fit').addEventListener('click', refit);
     document.getElementById('reset').addEventListener('click', function () {
-      refit();
-      panZoom.zoom(1);
-      updateZoomLabel();
+      panZoom.resize();
+      centerAt(1);
     });
     document.getElementById('download').addEventListener('click', function () {
       var serializer = new XMLSerializer();
@@ -294,7 +311,7 @@ ${escaped}
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       if (e.key === '+' || e.key === '=') panZoom.zoomIn();
       else if (e.key === '-' || e.key === '_') panZoom.zoomOut();
-      else if (e.key === '0') { refit(); panZoom.zoom(1); updateZoomLabel(); }
+      else if (e.key === '0') { panZoom.resize(); centerAt(1); }
       else if (e.key === 'f' || e.key === 'F') refit();
     });
 

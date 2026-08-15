@@ -31,10 +31,18 @@ OPENED: true|false
 
 ## What to do with the output
 
-- Always append a markdown link using the `URL:` value, e.g.:
+- Append a markdown link using the `URL:` value, e.g.:
   `[🔗 View rendered diagram](file:///C:/Users/you/.claude/cc-mermaid/renders/diagram-abc123.html)`
+- Many chat clients (browser-based UIs, the desktop/web app) block navigation to
+  `file://` links for security — clicking does nothing there even though the link
+  renders. So also print the plain `PATH:` value on its own line in an inline code
+  span right after the link, e.g. `` `C:\Users\you\.claude\cc-mermaid\renders\diagram-abc123.html` ``,
+  so the user can copy it and paste it into their browser's address bar if the link
+  doesn't open.
 - If `OPENED: true`, mention briefly that it was opened in the browser automatically
   (auto-open is a user-controlled setting, toggled via `/cc-mermaid:mermaid-autoopen`).
+  If `OPENED: false`, you can mention `/cc-mermaid:mermaid-autoopen on` as a way to
+  skip needing to click/paste the link every time.
 - If the script errors, don't block your response on it — just show the mermaid code
   block as normal and skip the link.
 - Do this for every mermaid block if a response contains more than one diagram.
