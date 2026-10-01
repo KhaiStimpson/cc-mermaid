@@ -1,8 +1,31 @@
 {
   "name": "cc-mermaid",
-  "description": "Renders Mermaid diagrams from chat responses to a self-contained HTML file and links (or auto-opens) it in your browser.",
-  "version": "0.3.2",
+  "description": "Renders Mermaid diagrams from chat responses inline in the transcript (Desktop, VS Code, mobile, kitty/Ghostty terminals), with a self-contained HTML file and link as the fallback everywhere else.",
+  "version": "0.4.0",
   "author": {
     "name": "Khai Stimpson"
+  },
+  "userConfig": {
+    "renderer": {
+      "type": "string",
+      "title": "Inline diagram renderer",
+      "description": "How diagrams are rendered for inline display: mermaid.ink (sends the diagram source to the public mermaid.ink service), mmdc (local @mermaid-js/mermaid-cli, nothing leaves your machine), or off (HTML link only).",
+      "default": "mermaid.ink",
+      "options": ["mermaid.ink", "mmdc", "off"]
+    },
+    "theme": {
+      "type": "string",
+      "title": "Inline diagram theme",
+      "description": "Mermaid theme for inline diagrams.",
+      "default": "default",
+      "options": ["default", "dark", "neutral", "forest"]
+    },
+    "terminalImages": {
+      "type": "string",
+      "title": "Inline images in the terminal",
+      "description": "auto draws diagrams as images only in kitty and Ghostty (the terminals with the kitty graphics protocol); always forces it on, never keeps the raw code block.",
+      "default": "auto",
+      "options": ["auto", "always", "never"]
+    }
   }
 }
