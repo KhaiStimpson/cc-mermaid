@@ -15,26 +15,8 @@
     "theme": {
       "type": "string",
       "title": "Inline diagram theme",
-      "description": "Colors for inline SVG diagrams. auto follows Claude Code's light or dark theme.",
-      "default": "auto",
-      "options": [
-        "auto",
-        "zinc-light",
-        "zinc-dark",
-        "github-light",
-        "github-dark",
-        "tokyo-night",
-        "tokyo-night-storm",
-        "tokyo-night-light",
-        "catppuccin-mocha",
-        "catppuccin-latte",
-        "nord",
-        "nord-light",
-        "dracula",
-        "solarized-light",
-        "solarized-dark",
-        "one-dark"
-      ]
+      "description": "Colors for inline SVG diagrams. auto follows Claude Code's light or dark theme. One of: auto, zinc-light, zinc-dark, github-light, github-dark, tokyo-night, tokyo-night-storm, tokyo-night-light, catppuccin-mocha, catppuccin-latte, nord, nord-light, dracula, solarized-light, solarized-dark, one-dark.",
+      "default": "auto"
     }
   }
 }
