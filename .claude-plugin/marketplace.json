@@ -7,7 +7,7 @@
     {
       "name": "cc-mermaid",
       "source": "./",
-      "description": "Renders Mermaid diagrams from chat responses to a self-contained HTML file and links (or auto-opens) it in your browser."
+      "description": "Renders Mermaid diagrams from chat responses inline in the transcript where the client can draw them, with a self-contained HTML file and link as the fallback."
     }
   ]
 }
