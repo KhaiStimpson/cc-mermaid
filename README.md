@@ -25,7 +25,8 @@ link to it right in the response.
 - `/cc-mermaid:mermaid-autoopen on|off` toggles the `autoOpen` setting.
 - `hooks/inline.tsx` is a [mod](https://code.claude.com/docs/en/plugins/mods/interface)
   (a function-hooks module) that hooks the `AssistantMessage` render site and redraws
-  each ` ```mermaid ` block as the diagram itself, see below.
+  each ` ```mermaid ` block as the diagram itself, rendered by `scripts/render-inline.mjs`;
+  see below.
 
 ## Inline diagrams
 
@@ -34,35 +35,28 @@ finished ` ```mermaid ` block in Claude's reply with the rendered diagram:
 
 | Where | What you see |
 | --- | --- |
-| Desktop app, VS Code, mobile | The diagram as an SVG, inline |
-| kitty, Ghostty (kitty graphics protocol) | The diagram as a PNG image, inline |
-| Any other terminal | The usual code block plus the HTML link |
+| Desktop app, VS Code, mobile | The diagram as an SVG |
+| Terminal | The diagram in Unicode box-drawing characters |
 
 The reply text Claude (and the transcript file) holds is never changed, only how it is
-drawn. While a diagram renders, or if it fails, the reply is drawn as before.
+drawn. While a diagram renders, the reply is drawn as before.
 
-Diagrams are rendered **locally** with
-[mermaid-cli](https://github.com/mermaid-js/mermaid-cli) (`mmdc`); the diagram source
-never leaves your machine. Install it once:
+Diagrams are rendered **locally** by [beautiful-mermaid](https://github.com/lukilabs/beautiful-mermaid),
+bundled with the plugin (`scripts/vendor/`) and run with Node: no browser, nothing to
+install, and the diagram never leaves your machine. It draws flowcharts, state, sequence,
+class and ER diagrams and XY charts. Other types (pie, gantt, mindmap, ...), diagrams with
+a syntax error, and terminal diagrams too wide for the window keep their code block and
+the HTML link, which uses the full mermaid.js.
 
-```
-npm i -g @mermaid-js/mermaid-cli
-```
-
-Until it's installed, replies look as they always did and a one-time notice says what to
-install. Options, in `/config` (or `pluginConfigs.cc-mermaid.options` in settings):
+Options, in `/config` (or `pluginConfigs.cc-mermaid.options` in settings):
 
 - `inline`: draw diagrams inline (default on); off leaves the HTML link only.
-- `mmdcPath`: the `mmdc` executable, when it isn't on your `PATH`.
-- `theme`: `default`, `dark`, `neutral` or `forest`.
-- `terminalImages`: `auto` (detect kitty/Ghostty), `always`, or `never`.
+- `theme`: colors for SVG diagrams. `auto` (default) follows Claude Code's light or
+  dark theme; or pick one of beautiful-mermaid's themes (`github-dark`, `nord`,
+  `dracula`, `tokyo-night`, ...).
 
-If mermaid-cli's headless Chrome needs launch options on your machine (a custom Chrome
-path, or `--no-sandbox` when running as root on Linux), put a
-[puppeteer config](https://github.com/mermaid-js/mermaid-cli/blob/master/docs/linux-sandbox-issue.md)
-at `~/.claude/cc-mermaid/puppeteer-config.json` and it is passed to `mmdc -p`.
-
-Rendered images are cached by content under `~/.claude/cc-mermaid/renders/inline/`.
+To update the bundled renderer, bump `VERSION` in `scripts/build-vendor.sh`, run it, and
+commit `scripts/vendor/beautiful-mermaid.mjs`.
 
 Mods are an early-access Claude Code feature (built and tested against Claude Code
 2.1.287). On a build without them, inline drawing is unavailable and the HTML link
@@ -95,7 +89,6 @@ mod: `claude plugin validate .` and `claude plugin test .`.
 ## Requirements
 
 - Node.js (bundled scripts are plain Node, no dependencies).
-- For inline diagrams: `@mermaid-js/mermaid-cli` (`mmdc`).
 - Internet access to load mermaid.js from the jsdelivr CDN when viewing a rendered file.
 
 ## License

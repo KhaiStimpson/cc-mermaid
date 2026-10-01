@@ -1,4 +1,4 @@
-export type Segment = { kind: 'markdown'; text: string } | { kind: 'mermaid'; source: string }
+export type Segment = { kind: 'markdown'; text: string } | { kind: 'mermaid'; source: string; raw: string }
 
 // Only closed fences: a block still streaming in stays plain text until done.
 const MERMAID_FENCE = /^([ \t]*)(`{3,}|~{3,})[ \t]*mermaid[^\n]*\n([\s\S]*?)\n[ \t]*\2[ \t]*$/gm
@@ -17,20 +17,16 @@ export function splitMermaid(text: string): Segment[] {
       .split('\n')
       .map(line => (line.startsWith(indent) ? line.slice(indent.length) : line))
       .join('\n')
-    if (source.trim()) segments.push({ kind: 'mermaid', source })
+    if (source.trim()) segments.push({ kind: 'mermaid', source, raw: match[0] })
+    else segments.push({ kind: 'markdown', text: match[0] })
     last = start + match[0].length
   }
   if (last < text.length) segments.push({ kind: 'markdown', text: text.slice(last) })
   return segments
 }
 
-// Terminal cells are roughly twice as tall as they are wide.
-export function imageCells(width: number, height: number, maxColumns: number) {
-  let columns = Math.max(10, Math.min(255, maxColumns, Math.ceil(width / 8)))
-  let rows = Math.max(1, Math.round((columns * height) / width / 2))
-  if (rows > 255) {
-    columns = Math.max(1, Math.floor((255 * 2 * width) / height))
-    rows = 255
-  }
-  return { columns, rows }
+// The widest line of a text drawing, in terminal cells (box-drawing glyphs
+// are one cell each).
+export function textWidth(drawing: string) {
+  return Math.max(0, ...drawing.split('\n').map(line => [...line.trimEnd()].length))
 }

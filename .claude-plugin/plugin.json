@@ -1,6 +1,6 @@
 {
   "name": "cc-mermaid",
-  "description": "Renders Mermaid diagrams from chat responses inline in the transcript (Desktop, VS Code, mobile, kitty/Ghostty terminals), with a self-contained HTML file and link as the fallback everywhere else.",
+  "description": "Renders Mermaid diagrams from chat responses inline in the transcript (an SVG in Desktop, VS Code and mobile; Unicode in the terminal), with a self-contained HTML file and link as the fallback.",
   "version": "0.4.0",
   "author": {
     "name": "Khai Stimpson"
@@ -9,36 +9,31 @@
     "inline": {
       "type": "boolean",
       "title": "Draw diagrams inline",
-      "description": "Draw mermaid diagrams in the transcript where the client can (Desktop, VS Code, mobile, kitty/Ghostty). Rendered locally with mermaid-cli; off leaves the HTML link only.",
+      "description": "Draw mermaid diagrams in the transcript: an SVG in the Desktop app, VS Code and mobile, a Unicode diagram in the terminal. Rendered locally by the bundled beautiful-mermaid; off leaves the HTML link only.",
       "default": true
-    },
-    "mmdcPath": {
-      "type": "string",
-      "title": "mermaid-cli path",
-      "description": "The mmdc executable used to render diagrams locally. Leave empty to use mmdc from PATH (npm i -g @mermaid-js/mermaid-cli).",
-      "default": ""
     },
     "theme": {
       "type": "string",
       "title": "Inline diagram theme",
-      "description": "Mermaid theme for inline diagrams.",
-      "default": "default",
-      "options": [
-        "default",
-        "dark",
-        "neutral",
-        "forest"
-      ]
-    },
-    "terminalImages": {
-      "type": "string",
-      "title": "Inline images in the terminal",
-      "description": "auto draws diagrams as images only in kitty and Ghostty (the terminals with the kitty graphics protocol); always forces it on, never keeps the raw code block.",
+      "description": "Colors for inline SVG diagrams. auto follows Claude Code's light or dark theme.",
       "default": "auto",
       "options": [
         "auto",
-        "always",
-        "never"
+        "zinc-light",
+        "zinc-dark",
+        "github-light",
+        "github-dark",
+        "tokyo-night",
+        "tokyo-night-storm",
+        "tokyo-night-light",
+        "catppuccin-mocha",
+        "catppuccin-latte",
+        "nord",
+        "nord-light",
+        "dracula",
+        "solarized-light",
+        "solarized-dark",
+        "one-dark"
       ]
     }
   }
