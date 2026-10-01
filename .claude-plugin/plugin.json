@@ -1,7 +1,7 @@
 {
   "name": "cc-mermaid",
   "description": "Renders Mermaid diagrams from chat responses inline in the transcript (an SVG in Desktop, VS Code and mobile; Unicode in the terminal), with a self-contained HTML file and link as the fallback.",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "author": {
     "name": "Khai Stimpson"
   },

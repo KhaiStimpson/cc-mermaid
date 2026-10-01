@@ -26,57 +26,49 @@ const THEMES = [
 // renders a diagram twice.
 const cache = new Map<string, Entry>()
 
-async function renderOnHost($: EngineInterface, key: string, request: { source: string; kind: Kind; theme: string }) {
+type Components = ReturnType<EngineInterface['ui']['resolve']>
+
+type RunResult = { stdout: string; stderr: string; exitCode: number | null }
+
+const cacheKey = (source: string, kind: Kind, theme: string) => `${kind}\0${theme}\0${source}`
+
+// Files a finished background render in the cache; returns why it failed, if
+// it did, for the debug log.
+function settle(key: string, ran: RunResult | undefined, error?: unknown): string | undefined {
   try {
-    const ran = await $.process.run(['node', `${$.plugin.root}/scripts/render-inline.mjs`], {
-      stdin: JSON.stringify(request),
-      timeoutMs: 30_000,
-    })
+    if (!ran) throw error
     const result = JSON.parse(ran.stdout.trim().split('\n').pop() || '{}')
     if (result.ok !== true) throw new Error(result.reason || ran.stderr.trim() || `exit ${ran.exitCode}`)
     cache.set(key, { status: 'done', out: String(result.out) })
+    return undefined
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err)
     cache.set(key, { status: 'failed', reason })
-    $.ui.log(`cc-mermaid: diagram not drawn inline: ${reason}`, { to: 'debug' })
+    return reason
   }
-  $.ui.invalidate('ui.render')
-}
-
-// The cached drawing, or a pending entry while one renders in the background;
-// its completion redraws the transcript.
-function lookup($: EngineInterface, source: string, kind: Kind, theme: string): Entry {
-  const key = `${kind}\0${theme}\0${source}`
-  const known = cache.get(key)
-  if (known) return known
-  cache.set(key, { status: 'pending' })
-  void renderOnHost($, key, { source, kind, theme })
-  return { status: 'pending' }
 }
 
 // `auto` follows Claude Code's own theme setting, light or dark.
-async function themeName($: EngineInterface, settings: Settings) {
-  if (THEMES.includes(settings.theme)) return settings.theme
-  const rows = await $.config.list()
-  const current = String(rows.find(row => row.key === 'theme')?.value ?? 'dark')
+function themeName(chosen: string, current: string) {
+  if (THEMES.includes(chosen)) return chosen
   return current.includes('light') ? 'zinc-light' : 'zinc-dark'
 }
 
-function drawDiagram($: EngineInterface, e: RenderInput<'AssistantMessage'>, source: string, out: string, key: string) {
+function drawDiagram(ui: Components, e: RenderInput<'AssistantMessage'>, source: string, out: string, key: string) {
   if (e.surface === 'terminal') {
     const room = (e.viewport?.columns ?? 100) - 4
     if (textWidth(out) > room) return undefined
-    const { Text } = $.ui.resolve(e)
+    const { Text } = ui
     return <Text key={key}>{out.replace(/[ \t]+$/gm, '').replace(/^\n+|\n+$/g, '')}</Text>
   }
   if (out.length > MAX_SVG_CHARS) return undefined
   const alt = `Mermaid diagram: ${(source.split('\n')[0] ?? '').trim()}`
-  const { Svg } = $.ui.resolve(e)
+  const { Svg } = ui
   return <Svg source={out} alt={alt} />
 }
 
-function drawMarkdown($: EngineInterface, e: RenderInput<'AssistantMessage'>, text: string, key: string) {
-  const { Markdown } = $.ui.resolve(e)
+function drawMarkdown(ui: Components, text: string, key: string) {
+  const { Markdown } = ui
   return <Markdown key={key} text={text.replace(/^\n+|\n+$/g, '')} />
 }
 
@@ -93,15 +85,43 @@ export const register: Register = (on, options) => {
     if (!segments.some(s => s.kind === 'mermaid')) return next(e)
 
     const kind: Kind = e.surface === 'terminal' ? 'ascii' : 'svg'
-    const theme = kind === 'svg' ? await themeName($, settings) : ''
-    const entries = segments.map(s => (s.kind === 'mermaid' ? lookup($, s.source, kind, theme) : undefined))
+    let theme = ''
+    if (kind === 'svg') {
+      const rows = THEMES.includes(settings.theme) ? [] : await $.config.list()
+      theme = themeName(settings.theme, String(rows.find(row => row.key === 'theme')?.value ?? 'dark'))
+    }
+
+    // The cached drawing, or a pending entry while one renders in the
+    // background; its completion redraws the transcript.
+    const entries = segments.map((s): Entry | undefined => {
+      if (s.kind !== 'mermaid') return undefined
+      const key = cacheKey(s.source, kind, theme)
+      const known = cache.get(key)
+      if (known) return known
+      cache.set(key, { status: 'pending' })
+      $.process
+        .run(['node', `${$.plugin.root}/scripts/render-inline.mjs`], {
+          stdin: JSON.stringify({ source: s.source, kind, theme }),
+          timeoutMs: 30_000,
+        })
+        .then(
+          ran => settle(key, ran),
+          err => settle(key, undefined, err),
+        )
+        .then(reason => {
+          if (reason) $.ui.log(`cc-mermaid: diagram not drawn inline: ${reason}`, { to: 'debug' })
+          $.ui.invalidate('ui.render')
+        })
+      return { status: 'pending' }
+    })
     // Every diagram settles before any is drawn, so a reply never flips
     // between code and pictures one diagram at a time.
     if (entries.some(entry => entry?.status === 'pending')) return next(e)
 
+    const ui = $.ui.resolve(e)
     const diagrams = segments.map((s, i) => {
       const entry = entries[i]
-      return s.kind === 'mermaid' && entry?.status === 'done' ? drawDiagram($, e, s.source, entry.out, `diagram-${i}`) : undefined
+      return s.kind === 'mermaid' && entry?.status === 'done' ? drawDiagram(ui, e, s.source, entry.out, `diagram-${i}`) : undefined
     })
     if (diagrams.every(d => d === undefined)) return next(e)
 
@@ -117,10 +137,10 @@ export const register: Register = (on, options) => {
       if (!text.trim()) continue
       // The lead text goes through the engine's own drawing, keeping the
       // reply's bullet; later text is drawn the same way a reply's is.
-      children.push(i === 0 ? await next({ ...e, props: { ...e.props, text } }) : drawMarkdown($, e, text, `md-${i}`))
+      children.push(i === 0 ? await next({ ...e, props: { ...e.props, text } }) : drawMarkdown(ui, text, `md-${i}`))
     }
 
-    const { Box } = $.ui.resolve(e)
+    const { Box } = ui
     return <Box flexDirection="column">{children}</Box>
   })
 }
