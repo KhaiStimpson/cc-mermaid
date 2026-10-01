@@ -3,12 +3,18 @@ import { expect, mock, test } from 'claude-code/testing'
 
 type RunResult = { exitCode: number; stdout: string; stderr: string }
 
+const ran = (r: RunResult) => ({ value: { ...r, isStdoutTruncated: false, isStderrTruncated: false } })
+
 // Stands in for the engine beneath the plugin: its own drawing of a reply
 // (a Markdown), the debug log, the environment and the host render script.
-function engine(on: On, run: (format: string) => RunResult, env: Record<string, string> = {}) {
+function engine(on: On, run: (format: string) => RunResult, env: Record<string, string> = {}, toasts: string[] = []) {
   const formats: string[] = []
   mock.env(on, env)
   on('ui.log', () => ({ value: undefined }))
+  on('ui.toast', ($, e) => {
+    toasts.push(String(e.text))
+    return { value: undefined }
+  })
   on('ui.render', { component: 'AssistantMessage' }, ($, e) => {
     const { Markdown } = $.ui.resolve(e)
     return Markdown({ key: 'engine', text: e.props.text })
@@ -16,7 +22,7 @@ function engine(on: On, run: (format: string) => RunResult, env: Record<string, 
   on('process.run', ($, e) => {
     const format = String(e.argv[4])
     formats.push(format)
-    return { value: run(format) }
+    return ran(run(format))
   })
   return formats
 }
@@ -60,7 +66,7 @@ test('a reply without mermaid is left to the engine', async ($, on) => {
 })
 
 test('a failed render keeps the code block', async ($, on) => {
-  engine(on, () => ({ exitCode: 1, stdout: '', stderr: 'mermaid.ink answered 400' }))
+  engine(on, () => ({ exitCode: 1, stdout: '', stderr: 'Error: Parse error on line 2' }))
   const ui = await $.ui.mount({
     plugin: 'cc-mermaid',
     surface: 'desktop',
@@ -107,5 +113,40 @@ test('kitty is detected from the environment', async ($, on) => {
   })
   await ui.redraw()
   expect(await ui.find({ type: 'Image' })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a missing mermaid-cli says how to install it, once', async ($, on) => {
+  const toasts: string[] = []
+  engine(on, () => ({ exitCode: 1, stdout: '', stderr: 'MMDC_NOT_FOUND\n' }), {}, toasts)
+  for (const body of ['graph TD\n  M --> N', 'graph TD\n  O --> P']) {
+    const ui = await $.ui.mount({ plugin: 'cc-mermaid', surface: 'desktop', component: 'AssistantMessage', props: props('```mermaid\n' + body + '\n```') })
+    await ui.redraw()
+    expect(await ui.find({ type: 'Svg' })).toBeUndefined()
+    await ui.unmount()
+  }
+  expect(toasts.length).toBe(1)
+  expect(toasts[0]).toContain('@mermaid-js/mermaid-cli')
+})
+
+test('inline drawing can be switched off', { options: { inline: false } }, async ($, on) => {
+  const runs = engine(on, () => ({ exitCode: 0, stdout: '', stderr: '' }))
+  const ui = await $.ui.mount({ plugin: 'cc-mermaid', surface: 'desktop', component: 'AssistantMessage', props: props(REPLY) })
+  expect(await ui.find({ type: 'Svg' })).toBeUndefined()
+  expect(runs).toEqual([])
+  await ui.unmount()
+})
+
+test('a custom mmdc path reaches the render script', { options: { mmdcPath: '/opt/tools/mmdc' } }, async ($, on) => {
+  let argv: readonly string[] = []
+  on('ui.log', () => ({ value: undefined }))
+  on('ui.render', { component: 'AssistantMessage' }, ($, e) => $.ui.resolve(e).Markdown({ text: e.props.text }))
+  on('process.run', ($, e) => {
+    argv = e.argv
+    return ran({ exitCode: 0, stdout: JSON.stringify({ path: '/tmp/c.svg', svg: SVG }) + '\n', stderr: '' })
+  })
+  const ui = await $.ui.mount({ plugin: 'cc-mermaid', surface: 'vscode', component: 'AssistantMessage', props: props('```mermaid\ngraph TD\n  C --> D\n```') })
+  await ui.redraw()
+  expect(argv.slice(3)).toEqual(['--', 'svg', 'default', '/opt/tools/mmdc'])
   await ui.unmount()
 })

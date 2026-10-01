@@ -5,11 +5,13 @@ import { RENDER_SCRIPT } from './renderScript'
 
 // Draws ```mermaid blocks in assistant replies as diagrams, inline in the
 // transcript: an Svg on the Desktop app, VS Code and mobile, and an Image on
-// terminals that speak the kitty graphics protocol (kitty, Ghostty). Anywhere
-// else, or while a diagram is still rendering or failed to, the reply is drawn
-// exactly as Claude Code would, so the skill's HTML link stays the fallback.
+// terminals that speak the kitty graphics protocol (kitty, Ghostty). Diagrams
+// are rendered locally with mermaid-cli (mmdc), so nothing leaves the machine.
+// Anywhere else, or while a diagram is still rendering or failed to, the reply
+// is drawn exactly as Claude Code would, so the skill's HTML link stays the
+// fallback.
 
-type Settings = { renderer: string; theme: string; terminalImages: string }
+type Settings = { enabled: boolean; mmdc: string; theme: string; terminalImages: string }
 
 type Rendered = { path: string; width?: number; height?: number; svg?: string }
 
@@ -24,6 +26,7 @@ type Format = 'svg' | 'png'
 // a reload of this module only pays for re-reading them.
 const cache = new Map<string, Entry>()
 let kittyTerminal: Promise<boolean> | undefined
+let hasToldMissingMmdc = false
 
 async function detectKittyGraphics($: EngineInterface) {
   const term = (await $.env.get('TERM')) ?? ''
@@ -46,7 +49,7 @@ function supportsTerminalImages($: EngineInterface, settings: Settings) {
 
 async function renderOnHost($: EngineInterface, key: string, format: Format, source: string, settings: Settings) {
   try {
-    const ran = await $.process.run(['node', '-e', RENDER_SCRIPT, '--', format, settings.renderer, settings.theme], {
+    const ran = await $.process.run(['node', '-e', RENDER_SCRIPT, '--', format, settings.theme, settings.mmdc], {
       stdin: source,
       timeoutMs: 90_000,
     })
@@ -57,6 +60,10 @@ async function renderOnHost($: EngineInterface, key: string, format: Format, sou
     const reason = err instanceof Error ? err.message : String(err)
     cache.set(key, { status: 'failed', reason })
     $.ui.log(`cc-mermaid: inline render failed: ${reason}`, { to: 'debug' })
+    if (reason === 'MMDC_NOT_FOUND' && !hasToldMissingMmdc) {
+      hasToldMissingMmdc = true
+      $.ui.toast('cc-mermaid: install mermaid-cli to see diagrams inline: npm i -g @mermaid-js/mermaid-cli')
+    }
   }
   $.ui.invalidate('ui.render')
 }
@@ -96,13 +103,14 @@ function drawDiagram($: EngineInterface, e: RenderInput<'AssistantMessage'>, res
 
 export const register: Register = (on, options) => {
   const settings: Settings = {
-    renderer: ['mermaid.ink', 'mmdc', 'off'].includes(String(options.renderer)) ? String(options.renderer) : 'mermaid.ink',
+    enabled: options.inline !== false,
+    mmdc: String(options.mmdcPath ?? '').trim() || 'mmdc',
     theme: ['default', 'dark', 'neutral', 'forest'].includes(String(options.theme)) ? String(options.theme) : 'default',
     terminalImages: String(options.terminalImages ?? 'auto'),
   }
 
   on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) => {
-    if (settings.renderer === 'off') return next(e)
+    if (!settings.enabled) return next(e)
 
     const segments = splitMermaid(e.props.text)
     if (!segments.some(s => s.kind === 'mermaid')) return next(e)
