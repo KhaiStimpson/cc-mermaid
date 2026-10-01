@@ -41,16 +41,26 @@ finished ` ```mermaid ` block in Claude's reply with the rendered diagram:
 The reply text Claude (and the transcript file) holds is never changed, only how it is
 drawn. While a diagram renders, or if it fails, the reply is drawn as before.
 
-Rendering runs `node` on your machine with one of two renderers, chosen in `/config`
-(or `pluginConfigs.cc-mermaid.options` in settings):
+Diagrams are rendered **locally** with
+[mermaid-cli](https://github.com/mermaid-js/mermaid-cli) (`mmdc`); the diagram source
+never leaves your machine. Install it once:
 
-- `renderer`: `mermaid.ink` (default) sends the diagram source to the public
-  [mermaid.ink](https://mermaid.ink) service. Pick `mmdc` to render locally with
-  [`@mermaid-js/mermaid-cli`](https://github.com/mermaid-js/mermaid-cli)
-  (`npm i -g @mermaid-js/mermaid-cli`) so nothing leaves your machine, or `off` to
-  disable inline drawing.
+```
+npm i -g @mermaid-js/mermaid-cli
+```
+
+Until it's installed, replies look as they always did and a one-time notice says what to
+install. Options, in `/config` (or `pluginConfigs.cc-mermaid.options` in settings):
+
+- `inline`: draw diagrams inline (default on); off leaves the HTML link only.
+- `mmdcPath`: the `mmdc` executable, when it isn't on your `PATH`.
 - `theme`: `default`, `dark`, `neutral` or `forest`.
 - `terminalImages`: `auto` (detect kitty/Ghostty), `always`, or `never`.
+
+If mermaid-cli's headless Chrome needs launch options on your machine (a custom Chrome
+path, or `--no-sandbox` when running as root on Linux), put a
+[puppeteer config](https://github.com/mermaid-js/mermaid-cli/blob/master/docs/linux-sandbox-issue.md)
+at `~/.claude/cc-mermaid/puppeteer-config.json` and it is passed to `mmdc -p`.
 
 Rendered images are cached by content under `~/.claude/cc-mermaid/renders/inline/`.
 
@@ -84,7 +94,8 @@ mod: `claude plugin validate .` and `claude plugin test .`.
 
 ## Requirements
 
-- Node.js 18+ (bundled scripts are plain Node, no dependencies).
+- Node.js (bundled scripts are plain Node, no dependencies).
+- For inline diagrams: `@mermaid-js/mermaid-cli` (`mmdc`).
 - Internet access to load mermaid.js from the jsdelivr CDN when viewing a rendered file.
 
 ## License
